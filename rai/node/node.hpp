@@ -44,6 +44,7 @@ class election_status
 public:
 	std::shared_ptr<rai::block> winner;
 	rai::amount tally;
+	bool stapled;
 };
 class vote_info
 {
@@ -356,6 +357,7 @@ public:
 	rai::block_hash hash;
 	boost::optional<std::pair<rai::uint256_union, rai::signature>> vote_staple;
 	bool confirmed;
+	rai::amount staple_tally;
 };
 class rebroadcast_info
 {
@@ -363,6 +365,7 @@ public:
 	bool recent;
 	boost::optional<std::pair<rai::uint256_union, rai::signature>> vote_staple;
 	bool confirmed;
+	rai::amount staple_tally;
 };
 // This class tracks blocks that are probably live because they arrived in a UDP packet
 // This gives a fairly reliable way to differentiate between blocks being inserted via bootstrap or new, live blocks.
@@ -370,7 +373,7 @@ class block_arrival
 {
 public:
 	// Return `true' to indicated an error if the block has already been inserted
-	bool add (rai::block_hash const &, boost::optional<std::pair<rai::uint256_union, rai::signature>> = boost::none, bool = false);
+	bool add (rai::block_hash const &, boost::optional<std::pair<rai::uint256_union, rai::signature>> = boost::none, bool = false, rai::amount = rai::amount (0));
 	bool recent (rai::block_hash const &);
 	rai::rebroadcast_info rebroadcast_info (rai::block_hash const &);
 	boost::multi_index_container<
@@ -677,8 +680,8 @@ public:
 class musig_request_info
 {
 public:
-	musig_request_info (std::shared_ptr<rai::block>, std::function<void(bool, rai::uint256_union, rai::signature)> &&);
-	std::shared_ptr<rai::block> block;
+	musig_request_info (std::shared_ptr<rai::state_block>, std::function<void(bool, rai::uint256_union, rai::signature)> &&);
+	std::shared_ptr<rai::state_block> block;
 	rai::uint256_union block_hash;
 	std::unordered_set<rai::account> reps_requested;
 	std::function<void(bool, rai::uint256_union, rai::signature)> callback;
@@ -697,6 +700,7 @@ class vote_staple_requester
 public:
 	vote_staple_requester (rai::node &);
 	void request_staple (std::shared_ptr<rai::state_block>, std::function<void(bool, rai::uint256_union, rai::signature)>);
+	void request_staple_inner (std::shared_ptr<rai::state_block>, std::function<void(bool, rai::uint256_union, rai::signature)>);
 	void musig_stage0_res (rai::endpoint const &, rai::musig_stage0_res const &);
 	void musig_stage1_res (rai::musig_stage1_res const &);
 	void calculate_weight_cutoff ();
@@ -712,6 +716,7 @@ public:
 	std::unordered_set<rai::block_hash> full_broadcast_blocks;
 	static const size_t max_full_broadcast_blocks = 3;
 	rai::uint128_t weight_cutoff;
+	std::unordered_map<rai::account, std::queue<std::pair<std::shared_ptr<rai::state_block>, std::function<void (bool, rai::uint256_union, rai::signature)>>>> accounts_queue;
 	std::mutex mutex;
 	rai::node & node;
 };
